@@ -1,0 +1,10 @@
+-- Restore optional package dimensions on products and variants
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS length DECIMAL(8,2) NULL,
+  ADD COLUMN IF NOT EXISTS width DECIMAL(8,2) NULL,
+  ADD COLUMN IF NOT EXISTS height DECIMAL(8,2) NULL;
+
+ALTER TABLE product_variants
+  ADD COLUMN IF NOT EXISTS length DECIMAL(8,2) NULL,
+  ADD COLUMN IF NOT EXISTS width DECIMAL(8,2) NULL,
+  ADD COLUMN IF NOT EXISTS height DECIMAL(8,2) NULL;

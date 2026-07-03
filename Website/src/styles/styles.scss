@@ -1,0 +1,11 @@
+@use "custom-swiper.scss";
+@use "loading.scss";
+@use "globals.scss";
+@use "modal.scss";
+
+// Component-specific styles have been moved to their respective components
+// to enable CSS code-splitting and improve initial page load performance.
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

@@ -1,0 +1,82 @@
+[
+  {
+    "id": "ORD-001",
+    "customer": "John Doe",
+    "product": "Organic Face Cream",
+    "amount": 1250,
+    "status": "Delivered",
+    "date": "2024-06-30"
+  },
+  {
+    "id": "ORD-002",
+    "customer": "Jane Smith",
+    "product": "Natural Hair Oil",
+    "amount": 980,
+    "status": "Shipped",
+    "date": "2024-06-29"
+  },
+  {
+    "id": "ORD-003",
+    "customer": "Mike Johnson",
+    "product": "Ayurvedic Soap",
+    "amount": 500,
+    "status": "Processing",
+    "date": "2024-06-28"
+  },
+  {
+    "id": "ORD-004",
+    "customer": "Sarah Williams",
+    "product": "Herbal Shampoo",
+    "amount": 720,
+    "status": "Delivered",
+    "date": "2024-06-27"
+  },
+  {
+    "id": "ORD-005",
+    "customer": "David Brown",
+    "product": "Body Lotion",
+    "amount": 650,
+    "status": "Pending",
+    "date": "2024-06-26"
+  },
+  {
+    "id": "ORD-006",
+    "customer": "Emily Davis",
+    "product": "Organic Face Cream",
+    "amount": 1250,
+    "status": "Delivered",
+    "date": "2024-06-25"
+  },
+  {
+    "id": "ORD-007",
+    "customer": "Robert Wilson",
+    "product": "Natural Hair Oil",
+    "amount": 980,
+    "status": "Shipped",
+    "date": "2024-06-24"
+  },
+  {
+    "id": "ORD-008",
+    "customer": "Lisa Anderson",
+    "product": "Ayurvedic Soap",
+    "amount": 500,
+    "status": "Delivered",
+    "date": "2024-06-23"
+  },
+  {
+    "id": "ORD-009",
+    "customer": "James Taylor",
+    "product": "Herbal Shampoo",
+    "amount": 720,
+    "status": "Processing",
+    "date": "2024-06-22"
+  },
+  {
+    "id": "ORD-010",
+    "customer": "Maria Garcia",
+    "product": "Body Lotion",
+    "amount": 650,
+    "status": "Pending",
+    "date": "2024-06-21"
+  }
+]

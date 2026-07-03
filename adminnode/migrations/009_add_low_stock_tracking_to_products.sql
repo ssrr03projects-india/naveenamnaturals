@@ -1,0 +1,5 @@
+ALTER TABLE products
+  ADD COLUMN lowStockThreshold INT NOT NULL DEFAULT 5;
+
+ALTER TABLE products
+  ADD COLUMN trackQuantity TINYINT(1) NOT NULL DEFAULT 1;

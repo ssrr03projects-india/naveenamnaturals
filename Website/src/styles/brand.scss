@@ -1,0 +1,111 @@
+/* Brand Palette - Single Source of Truth */
+:root {
+  // --primary: #D4A373;
+  // --primary-rgb: 212 163 115;
+  // /* Terracotta - Calls to Action */
+  // --secondary: #606C38;
+  // --secondary-rgb: 96 108 56;
+  // /* Olive Branch - Secondary Accents */
+  // --accent: #606C38;
+  // --accent-rgb: 96 108 56;
+  // /* Secondary Accents */
+  // --surface: #FAEDCD;
+  // --surface-rgb: 250 237 205;
+  // /* Warm Sand - Product Card Backgrounds */
+  // --background: #FEFAE0;
+  // --background-rgb: 254 250 224;
+  // /* Soft Linen - Main Website Background */
+
+  // --primary: #1B2B2B;
+  // /* Darker Forest - High contrast for text/buttons */
+  // --primary-rgb: 27 43 43;
+
+  // --secondary: #4F772D;
+  // /* Vibrant Moss - Much more "alive" than sage */
+  // --secondary-rgb: 79 119 45;
+
+  // --accent: #BC6C25;
+  // /* Burnt Orange - Deeper saturation for CTAs */
+  // --accent-rgb: 188 108 37;
+
+  // --surface: #FFFFFF;
+  // /* Pure White - Makes products look "clean" */
+  // --surface-rgb: 255 255 255;
+
+  // --background: #F8F9FA;
+  // /* Cool Mist - Prevents eye strain but stays bright */
+  // --background-rgb: 248 249 250;
+
+  // --primary: #D5451B;
+  --primary: #4f772d;
+  /* Burnt Amber - A deep, saturated orange for "Buy" buttons */
+  // --primary-rgb: 213 69 27;
+  --primary-rgb: 79 119 45;
+
+  --secondary: #2d241b;
+  /* Dark Mahogany - Deep brown-black for high text readability */
+  --secondary-rgb: 45 36 27;
+
+  --accent: #ecb159;
+  /* Golden Honey - For active ingredient badges */
+  --accent-rgb: 236 177 89;
+
+  --surface: #f9f5f0;
+  /* Alabaster - A very light cream that doesn't feel faded */
+  --surface-rgb: 249 245 240;
+
+  --background: #ffffff;
+  /* True White - Maximum contrast against the dark mahogany */
+  --background-rgb: 255 255 255;
+
+  /* Theme tokens for Tailwind/shadcn */
+  --foreground: var(--secondary);
+  --card: var(--surface);
+  --card-foreground: var(--secondary);
+  --popover: var(--surface);
+  --popover-foreground: var(--secondary);
+  --primary-foreground: var(--background);
+  --secondary-foreground: var(--background);
+  --muted: var(--background);
+  --muted-foreground: color-mix(
+    in srgb,
+    var(--secondary) 70%,
+    var(--background)
+  );
+  --accent-foreground: var(--background);
+  --destructive: var(--primary);
+  --destructive-foreground: var(--background);
+  --border: color-mix(in srgb, var(--secondary) 15%, var(--background));
+  --input: var(--border);
+  --ring: var(--primary);
+  --chart-1: var(--primary);
+  --chart-2: var(--secondary);
+  --chart-3: var(--primary);
+  --chart-4: var(--secondary);
+  --chart-5: var(--primary);
+
+  /* Legacy Aliases (Mapped to Brand Colors) */
+  --green: var(--secondary);
+  --black: var(--secondary);
+  --secondary-legacy: color-mix(
+    in srgb,
+    var(--secondary) 70%,
+    var(--background)
+  );
+  --secondary2: color-mix(in srgb, var(--secondary) 50%, var(--background));
+  --white: var(--surface);
+  --red: var(--primary);
+  --purple: var(--secondary);
+  --success: var(--primary);
+  --yellow: var(--primary);
+  --pink: var(--primary);
+  --line: color-mix(in srgb, var(--secondary) 35%, var(--background));
+  --outline: color-mix(in srgb, var(--secondary) 20%, transparent);
+  --surface1: color-mix(in srgb, var(--background) 10%, transparent);
+  --surface2: color-mix(in srgb, var(--background) 20%, transparent);
+  --overlay-50: color-mix(in srgb, var(--secondary) 50%, transparent);
+  --overlay-60: color-mix(in srgb, var(--secondary) 60%, transparent);
+  --overlay-70: color-mix(in srgb, var(--secondary) 70%, transparent);
+  --shadow-soft: color-mix(in srgb, var(--secondary) 12%, transparent);
+  --shadow-strong: color-mix(in srgb, var(--secondary) 20%, transparent);
+}

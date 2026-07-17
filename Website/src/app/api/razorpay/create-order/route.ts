@@ -4,11 +4,14 @@ import axios from 'axios';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5005/api';
 
+const readEnvValue = (value?: string) => String(value || '').trim();
+
 export async function POST(request: NextRequest) {
   try {
-    // Validate environment variables (support both naming conventions)
-    const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const serverKeyId = readEnvValue(process.env.RAZORPAY_KEY_ID);
+    const publicKeyId = readEnvValue(process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID);
+    const keySecret = readEnvValue(process.env.RAZORPAY_KEY_SECRET);
+    const keyId = serverKeyId || publicKeyId;
 
     if (!keyId || !keySecret) {
       console.error('Razorpay credentials missing:', {
@@ -28,6 +31,12 @@ export async function POST(request: NextRequest) {
         },
         { status: 500 }
       );
+    }
+
+    if (serverKeyId && publicKeyId && serverKeyId !== publicKeyId) {
+      console.warn('Razorpay key mismatch detected between server and public environment variables.', {
+        usingServerKeyId: true,
+      });
     }
 
     // Initialize Razorpay instance
@@ -240,6 +249,18 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Razorpay order creation error:', error);
+
+    if (error?.statusCode === 401 || error?.error?.code === 'BAD_REQUEST_ERROR') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Razorpay authentication failed',
+          message:
+            'Unable to authenticate with Razorpay. Verify that RAZORPAY_KEY_ID/NEXT_PUBLIC_RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET belong to the same Razorpay account and mode, and restart the Next.js server after updating env values.',
+        },
+        { status: 500 }
+      );
+    }
     
     // Handle Razorpay API errors
     if (error.error) {

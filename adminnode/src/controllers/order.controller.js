@@ -37,6 +37,63 @@ const generateOrderNumber = () => {
   return `NN${timestamp}${random}`;
 };
 
+const splitFullName = (fullName = "") => {
+  const cleaned = String(fullName || "").trim();
+  if (!cleaned) {
+    return {
+      firstName: "Guest",
+      lastName: "Customer",
+    };
+  }
+
+  const [first, ...rest] = cleaned.split(/\s+/);
+  return {
+    firstName: first || "Guest",
+    lastName: rest.length > 0 ? rest.join(" ") : null,
+  };
+};
+
+const resolveCustomerForOrder = async ({ customerId, address }) => {
+  if (customerId) {
+    const existingById = await customer.findByPk(customerId);
+    if (!existingById) {
+      const error = new Error("Customer not found");
+      error.statusCode = 404;
+      throw error;
+    }
+    return existingById;
+  }
+
+  const guestEmail = String(address?.email || "")
+    .trim()
+    .toLowerCase();
+  if (!guestEmail) {
+    const error = new Error("Email is required for guest checkout");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const existingByEmail = await customer.findOne({
+    where: { email: guestEmail },
+  });
+  if (existingByEmail) {
+    return existingByEmail;
+  }
+
+  const { firstName, lastName } = splitFullName(address?.name);
+
+  return customer.create({
+    firstName,
+    lastName,
+    email: guestEmail,
+    phone: address?.phone || null,
+    password: null,
+    address: address || null,
+    isVerified: false,
+    tag: "guest",
+  });
+};
+
 const toFiniteNumber = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -468,19 +525,21 @@ const createOrder = async (req, res) => {
 
     console.log("Create Order Body:", JSON.stringify(req.body, null, 2));
 
-    if (!customerId || !items || !Array.isArray(items) || items.length === 0) {
+    if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Customer ID and items are required",
+        message: "Items are required",
       });
     }
 
-    // Verify customer exists
-    const customerData = await customer.findByPk(customerId);
-    if (!customerData) {
-      return res.status(404).json({
+    // Resolve customer for both authenticated and guest checkout flows
+    let customerData;
+    try {
+      customerData = await resolveCustomerForOrder({ customerId, address });
+    } catch (customerResolutionError) {
+      return res.status(customerResolutionError.statusCode || 400).json({
         success: false,
-        message: "Customer not found",
+        message: customerResolutionError.message || "Unable to resolve customer",
       });
     }
 
@@ -642,7 +701,7 @@ const createOrder = async (req, res) => {
       const validationResult = await validateAndCalculateCoupon(
         couponCode,
         subtotal,
-        customerId,
+        customerData.id,
         processedItems.map((item) => ({
           productId: item.productData.id,
           categoryId: item.productData.categoryId,
@@ -716,7 +775,7 @@ const createOrder = async (req, res) => {
     // Create order
     const newOrder = await order.create({
       orderNumber: generateOrderNumber(),
-      customerId,
+      customerId: customerData.id,
       status: "pending",
       paymentStatus,
       paymentMethod,
@@ -820,7 +879,7 @@ const createOrder = async (req, res) => {
     if (couponId) {
       try {
         console.log(
-          `📝 Creating coupon redemption for couponId: ${couponId}, orderId: ${newOrder.id}, customerId: ${customerId}`,
+          `📝 Creating coupon redemption for couponId: ${couponId}, orderId: ${newOrder.id}, customerId: ${customerData.id}`,
         );
 
         const couponData = await coupon.findByPk(couponId);
@@ -839,7 +898,7 @@ const createOrder = async (req, res) => {
         const redemption = await couponRedemption.create({
           couponId: couponId,
           orderId: newOrder.id,
-          customerId: customerId,
+          customerId: customerData.id,
           discountAmount: couponDiscount,
           usedAt: new Date(),
         });

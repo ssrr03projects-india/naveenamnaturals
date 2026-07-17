@@ -6,6 +6,7 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5005/api";
 const ORDER_SERVICE_SECRET =
   process.env.ORDER_SERVICE_SECRET || process.env.SERVICE_API_SECRET || "";
+const readEnvValue = (value?: string) => String(value || "").trim();
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +18,6 @@ export async function POST(request: NextRequest) {
       orderData,
     } = body;
 
-    // Validate required fields
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json(
         { error: "Missing required payment parameters", verified: false },
@@ -25,9 +25,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify signature
+    const secret = readEnvValue(process.env.RAZORPAY_KEY_SECRET);
+    if (!secret) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Razorpay configuration missing",
+          message: "RAZORPAY_KEY_SECRET is not configured",
+          verified: false,
+        },
+        { status: 500 },
+      );
+    }
+
     const text = `${razorpay_order_id}|${razorpay_payment_id}`;
-    const secret = process.env.RAZORPAY_KEY_SECRET || "";
     const generatedSignature = crypto
       .createHmac("sha256", secret)
       .update(text)
@@ -37,12 +48,16 @@ export async function POST(request: NextRequest) {
 
     if (!isSignatureValid) {
       return NextResponse.json(
-        { error: "Invalid payment signature", verified: false },
+        {
+          error: "Invalid payment signature",
+          message:
+            "Payment signature verification failed. Check Razorpay key/secret mode alignment.",
+          verified: false,
+        },
         { status: 400 },
       );
     }
 
-    // If order data is provided, create order in database
     if (orderData) {
       if (!ORDER_SERVICE_SECRET) {
         console.error("ORDER_SERVICE_SECRET is not configured");
@@ -58,7 +73,6 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        // Prepare order payload
         const orderPayload = {
           ...orderData,
           paymentId: razorpay_payment_id,
@@ -66,14 +80,6 @@ export async function POST(request: NextRequest) {
           paymentStatus: "paid",
         };
 
-	console.log("Creating order with payload:", JSON.stringify(orderPayload, null, 2));
-        console.log("API URL:", `${API_BASE_URL}/orders/public`);
-        console.log("Headers:", {
-          "Content-Type": "application/json",
-          "x-service-secret": ORDER_SERVICE_SECRET ? "***configured***" : "***missing***",
-        });
-
-        // Create order in backend
         const orderResponse = await axios.post(
           `${API_BASE_URL}/orders/public`,
           orderPayload,
@@ -109,19 +115,19 @@ export async function POST(request: NextRequest) {
             shippingLatestStatus: orderInfo.shippingLatestStatus || null,
             message: "Payment verified and order created successfully",
           });
-        } else {
-          return NextResponse.json(
-            {
-              success: false,
-              verified: true,
-              error: "Payment verified but order creation failed",
-              message: orderResponse.data.message || "Failed to create order",
-            },
-            { status: 500 },
-          );
         }
+
+        return NextResponse.json(
+          {
+            success: false,
+            verified: true,
+            error: "Payment verified but order creation failed",
+            message: orderResponse.data.message || "Failed to create order",
+          },
+          { status: 500 },
+        );
       } catch (orderError: any) {
-       console.error("Order creation error - Full Details:", {
+        console.error("Order creation error - Full Details:", {
           message: orderError.message,
           status: orderError.response?.status,
           statusText: orderError.response?.statusText,
@@ -129,10 +135,9 @@ export async function POST(request: NextRequest) {
           config: {
             url: orderError.config?.url,
             method: orderError.config?.method,
-            headers: orderError.config?.headers,
-          }
+          },
         });
-        // Payment is verified but order creation failed
+
         return NextResponse.json(
           {
             success: false,
@@ -148,7 +153,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If no order data, just return verification success
     return NextResponse.json({
       success: true,
       verified: true,

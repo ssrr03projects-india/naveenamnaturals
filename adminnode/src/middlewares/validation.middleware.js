@@ -112,8 +112,7 @@ const validateProduct = [
 // Order creation validation
 const validateOrder = [
   body("customerId")
-    .notEmpty()
-    .withMessage("Customer ID is required")
+    .optional({ nullable: true, checkFalsy: true })
     .isInt({ min: 1 })
     .withMessage("Customer ID must be a positive integer"),
   body("items")
@@ -162,6 +161,11 @@ const validateOrder = [
     .withMessage("Postal code is required")
     .matches(/^[0-9]{5,10}$/)
     .withMessage("Postal code must be 5-10 digits"),
+  body("address.email")
+    .optional({ nullable: true, checkFalsy: true })
+    .trim()
+    .isEmail()
+    .withMessage("Address email must be valid"),
   body("paymentMethod")
     .notEmpty()
     .withMessage("Payment method is required")

@@ -23,8 +23,14 @@ import { useAuth } from "@/context/AuthContext";
 import { Country, State } from "country-state-city";
 import { getMaxStock } from "@/lib/stock-utils";
 import CouponList from "@/components/Checkout/CouponList";
+import {
+  getMetaCheckoutSignature,
+  trackMetaAddPaymentInfo,
+  trackMetaInitiateCheckout,
+} from "@/lib/meta-pixel";
 
 const ORDER_SUCCESS_STORAGE_KEY = "nn_last_order_success";
+const META_INITIATE_CHECKOUT_STORAGE_KEY = "nn_meta_initiate_checkout";
 type MissingGstLookupItem = {
   cartId: string;
   productId: string | number;
@@ -166,6 +172,59 @@ const resolveItemVariantLabel = (item: {
   return variantLabel;
 };
 
+const splitNameForCheckout = (fullName: string) => {
+  const cleaned = String(fullName || "").trim();
+  if (!cleaned) {
+    return { firstName: "", lastName: "" };
+  }
+
+  const [firstName, ...rest] = cleaned.split(/\s+/);
+  return {
+    firstName: firstName || "",
+    lastName: rest.join(" "),
+  };
+};
+
+const normalizeLookupAddress = (value: unknown) => {
+  if (!value || typeof value !== "object") {
+    return {
+      name: "",
+      phone: "",
+      email: "",
+      address: "",
+      city: "",
+      state: "",
+      pincode: "",
+    };
+  }
+
+  const address = value as Record<string, unknown>;
+  return {
+    name: String(
+      address.name || address.fullname || address.fullName || "",
+    ).trim(),
+    phone: String(
+      address.phone || address.phonenumber || address.phoneNumber || "",
+    ).trim(),
+    email: String(address.email || "").trim(),
+    address: String(
+      address.address ||
+        address.street ||
+        address.address1 ||
+        address.addressLine1 ||
+        "",
+    ).trim(),
+    city: String(address.city || address.district || address.block || "").trim(),
+    state: String(address.state || address.stateCode || "").trim(),
+    pincode: String(
+      address.postalCode || address.pincode || address.zipCode || "",
+    )
+      .replace(/\D/g, "")
+      .slice(0, 6)
+      .trim(),
+  };
+};
+
 const CheckoutContent = () => {
   const searchParams = useSearchParams();
   const discount = searchParams.get("discount");
@@ -178,16 +237,15 @@ const CheckoutContent = () => {
     removeFromCart,
     freeShippingThreshold,
   } = useCart();
-  const { isAuthenticated, user, login, token, loading } = useAuth();
+  const { isAuthenticated, user, login, token } = useAuth();
   const router = useRouter();
-  const didRedirectToAuthRef = useRef(false);
   const checkoutRedirectPath = useMemo(() => {
     const params = searchParams.toString();
     return params ? `/checkout?${params}` : "/checkout";
   }, [searchParams]);
 
   const [totalCart, setTotalCart] = useState(0);
-  const [showLoginForm, setShowLoginForm] = useState(!isAuthenticated);
+  const [showLoginForm, setShowLoginForm] = useState(false);
   const [loginFormData, setLoginFormData] = useState({
     email: "",
     password: "",
@@ -263,6 +321,10 @@ const CheckoutContent = () => {
   );
   const [pincodeMessage, setPincodeMessage] = useState("");
   const [shippingCharge, setShippingCharge] = useState<number | null>(null);
+  const [isHistoryLookupLoading, setIsHistoryLookupLoading] = useState(false);
+  const [historyLookupMessage, setHistoryLookupMessage] = useState("");
+  const lastHistoryLookupKeyRef = useRef("");
+  const historyLookupRequestIdRef = useRef(0);
   const estimatedShipmentWeightKg = useMemo(
     () => estimateShippingWeightKg(cartState.cartArray),
     [cartState.cartArray],
@@ -413,6 +475,103 @@ const CheckoutContent = () => {
     [cartState.cartArray, resolvedGstRates],
   );
 
+  const performCustomerHistoryLookup = useCallback(
+    async (rawEmail?: string, rawPhone?: string) => {
+      if (isAuthenticated) {
+        return;
+      }
+
+      const contactValue = String((rawEmail ?? formData.email) || "").trim();
+      const contactDigits = contactValue.replace(/\D/g, "").slice(-10);
+      const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactValue)
+        ? contactValue.toLowerCase()
+        : "";
+      const phone = contactDigits.length === 10
+        ? contactDigits
+        : String((rawPhone ?? formData.phoneNumber) || "")
+        .replace(/\D/g, "")
+        .slice(-10);
+
+      const isEmailValid = Boolean(email);
+      const isPhoneValid = phone.length >= 10;
+
+      if (!isEmailValid && !isPhoneValid) {
+        lastHistoryLookupKeyRef.current = "";
+        setHistoryLookupMessage("");
+        setIsHistoryLookupLoading(false);
+        return;
+      }
+
+      const lookupKey = `${email}|${phone}`;
+      if (lastHistoryLookupKeyRef.current === lookupKey) {
+        return;
+      }
+
+      const requestId = historyLookupRequestIdRef.current + 1;
+      historyLookupRequestIdRef.current = requestId;
+      lastHistoryLookupKeyRef.current = lookupKey;
+
+      setIsHistoryLookupLoading(true);
+      try {
+        const response = await fetch("/api/customers/lookup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, phone }),
+        });
+
+        const result = await response.json();
+
+        if (requestId !== historyLookupRequestIdRef.current) {
+          return;
+        }
+
+        if (!response.ok || !result?.success || !result?.data?.matched) {
+          setHistoryLookupMessage("");
+          return;
+        }
+
+        const shippingAddress = normalizeLookupAddress(
+          result?.data?.shippingAddress,
+        );
+        const customerInfo = result?.data?.customer || {};
+        const totalOrders = Number(
+          customerInfo?.totalOrders || result?.data?.recentOrders?.length || 0,
+        );
+        const fullName = String(
+          shippingAddress.name ||
+            `${customerInfo?.firstName || ""} ${customerInfo?.lastName || ""}`,
+        ).trim();
+        const parsedName = splitNameForCheckout(fullName);
+
+        setFormData((prev) => ({
+          ...prev,
+          firstName: parsedName.firstName || prev.firstName,
+          lastName: parsedName.lastName || prev.lastName,
+          email: shippingAddress.email || customerInfo?.email || prev.email || email,
+          phoneNumber:
+            shippingAddress.phone || customerInfo?.phone || prev.phoneNumber || phone,
+          address: shippingAddress.address || prev.address,
+          city: shippingAddress.city || prev.city,
+          state: shippingAddress.state || prev.state,
+          pincode: shippingAddress.pincode || prev.pincode,
+        }));
+
+        setHistoryLookupMessage(
+          totalOrders > 0
+            ? `Welcome back. Found ${totalOrders} previous order${totalOrders > 1 ? "s" : ""}; shipping address auto-filled.`
+            : "Customer profile found; shipping address auto-filled.",
+        );
+      } catch {
+        setHistoryLookupMessage("");
+      } finally {
+        setIsHistoryLookupLoading(false);
+      }
+    },
+    [formData.email, formData.phoneNumber, isAuthenticated],
+  );
+
   // Load Razorpay script
   useEffect(() => {
     const script = document.createElement("script");
@@ -481,14 +640,6 @@ const CheckoutContent = () => {
       });
     }
   }, [isAuthenticated, user]);
-
-  useEffect(() => {
-    if (loading || isAuthenticated || didRedirectToAuthRef.current) return;
-    didRedirectToAuthRef.current = true;
-    router.replace(
-      `/login?redirect=${encodeURIComponent(checkoutRedirectPath)}`,
-    );
-  }, [loading, isAuthenticated, router, checkoutRedirectPath]);
 
   const validatePincode = async (pincode: string) => {
     if (pincode.length !== 6) {
@@ -762,6 +913,29 @@ const CheckoutContent = () => {
     resolvedShippingCharge,
   ]);
 
+  const checkoutMetaSignature = useMemo(() => {
+    return getMetaCheckoutSignature(cartState.cartArray, calculateTotal());
+  }, [calculateTotal, cartState.cartArray]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || cartState.cartArray.length === 0) {
+      return;
+    }
+
+    const lastTrackedSignature = sessionStorage.getItem(
+      META_INITIATE_CHECKOUT_STORAGE_KEY,
+    );
+    if (lastTrackedSignature === checkoutMetaSignature) {
+      return;
+    }
+
+    trackMetaInitiateCheckout(cartState.cartArray, calculateTotal());
+    sessionStorage.setItem(
+      META_INITIATE_CHECKOUT_STORAGE_KEY,
+      checkoutMetaSignature,
+    );
+  }, [calculateTotal, cartState.cartArray, checkoutMetaSignature]);
+
   // Free shipping calculation
   const amountToFreeShipping = hasFreeShippingThreshold
     ? Math.max(0, freeShippingThreshold - totalCart)
@@ -825,11 +999,6 @@ const CheckoutContent = () => {
       setPaymentError("Your cart is empty");
       return false;
     }
-    if (!isAuthenticated || !user) {
-      setPaymentError("Please login to place an order");
-      return false;
-    }
-
     // Validate stock availability
     for (const item of cartState.cartArray) {
       const maxStock = getMaxStock(item, item.selectedSize);
@@ -1015,7 +1184,7 @@ const CheckoutContent = () => {
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
                 orderData: {
-                  customerId: user!.id,
+                  customerId: user?.id,
                   items: cartState.cartArray.map((item) => ({
                     productId:
                       typeof item.id === "number"
@@ -1096,6 +1265,7 @@ const CheckoutContent = () => {
       };
 
       if (typeof window !== "undefined" && window.Razorpay) {
+        trackMetaAddPaymentInfo(cartState.cartArray, totalAmount);
         const razorpay = new window.Razorpay(options);
         razorpay.open();
       } else {
@@ -1206,6 +1376,9 @@ const CheckoutContent = () => {
                       >
                         Log in
                       </button>
+                      <p className="mt-1 text-sm text-secondary">
+                        Or continue with guest checkout.
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -1293,6 +1466,11 @@ const CheckoutContent = () => {
                     <h3 className="text-lg sm:text-xl font-bold text-black">
                       Contact Information
                     </h3>
+                    {!isAuthenticated && (
+                      <span className="inline-flex items-center rounded-full bg-success/10 text-success border border-success/20 px-3 py-1 text-xs sm:text-sm font-semibold">
+                        Guest Checkout
+                      </span>
+                    )}
                     {/* {!isAuthenticated && (
                       <div className="text-sm text-secondary">
                         Already have an account?{" "}
@@ -1310,15 +1488,26 @@ const CheckoutContent = () => {
                   <div className="space-y-4">
                     <input
                       className="w-full px-4 py-3.5 border border-outline rounded-xl focus:outline-none focus:ring-2 focus:ring-success/20 focus:border-success"
-                      type="email"
+                      type="text"
                       aria-label="Contact email or phone"
                       placeholder="Email or mobile phone number"
                       value={formData.email}
                       onChange={(e) =>
                         setFormData({ ...formData, email: e.target.value })
                       }
+                      onBlur={(e) => {
+                        void performCustomerHistoryLookup(e.target.value, formData.phoneNumber);
+                      }}
                       required
                     />
+
+                    {!isAuthenticated && (isHistoryLookupLoading || historyLookupMessage) && (
+                      <div className="rounded-xl border border-success/20 bg-success/10 px-4 py-3 text-sm text-secondary">
+                        {isHistoryLookupLoading
+                          ? "Checking your previous customer and order history..."
+                          : historyLookupMessage}
+                      </div>
+                    )}
 
                   </div>
                 </div>
@@ -1430,6 +1619,9 @@ const CheckoutContent = () => {
                           phoneNumber: e.target.value,
                         })
                       }
+                      onBlur={(e) => {
+                        void performCustomerHistoryLookup(formData.email, e.target.value);
+                      }}
                       required
                     />
                   </div>

@@ -3,6 +3,7 @@ const router = express.Router();
 const customerController = require("../controllers/customer.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
 const customerAuthMiddleware = require("../middlewares/customerAuth.middleware");
+const serviceAuthMiddleware = require("../middlewares/serviceAuth.middleware");
 const { validateCustomerLogin, validateCustomerRegistration, sanitizeRequestBody } = require("../middlewares/validation.middleware");
 const { loginLimiter } = require("../middlewares/rateLimit.middleware");
 
@@ -11,6 +12,12 @@ router.post("/login", loginLimiter, sanitizeRequestBody, validateCustomerLogin, 
 router.post("/register", sanitizeRequestBody, validateCustomerRegistration, customerController.customerRegister);
 router.post("/forgot-password", loginLimiter, sanitizeRequestBody, customerController.forgotPassword);
 router.post("/reset-password", sanitizeRequestBody, customerController.resetPassword);
+router.post(
+	"/public/lookup",
+	serviceAuthMiddleware.verifyServiceSecret,
+	sanitizeRequestBody,
+	customerController.lookupCustomerForCheckout,
+);
 
 // Protected customer routes (require customer authentication)
 router.post("/logout", customerAuthMiddleware.authenticateCustomerToken, customerController.customerLogout);

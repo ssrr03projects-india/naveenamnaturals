@@ -11,7 +11,7 @@
     "@phosphor-icons/react": "^2.1.1",
     "@radix-ui/react-progress": "^1.1.8",
     "@reduxjs/toolkit": "^2.11.2",
-    "axios": "^1.13.2",
+    "axios": "^1.16.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "country-state-city": "^3.2.1",
@@ -29,7 +29,7 @@
     "react-paginate": "^8.2.0",
     "react-redux": "^9.2.0",
     "sass": "^1.77.0",
-    "swiper": "^11.0.4",
+    "swiper": "^12.1.2",
     "swr": "^2.4.1",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7"

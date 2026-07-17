@@ -21,6 +21,7 @@ app.use(
       "http://localhost:3000",
       "http://127.0.0.1:3001",
       "http://127.0.0.1:3000",
+	  "https://lightyellow-gerbil-391509.hostingersite.com",
       "https://dashboard.naveenamnaturals.com",
       "https://www.naveenamnaturals.com",
       "https://www.dashboard.naveenamnaturals.com",
@@ -60,7 +61,9 @@ app.use((req, res, next) => {
   if (
     req.path.startsWith("/api/orders/public") ||
     req.path.startsWith("/api/coupons/public") ||
-    req.path.startsWith("/api/coupons/validate")
+    req.path.startsWith("/api/coupons/validate") ||
+    req.path.startsWith("/api/customers/public/lookup")||
+    req.path.startsWith("/api/shipping/check-pincode")
   ) {
     return next();
   }

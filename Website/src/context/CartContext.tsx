@@ -11,6 +11,7 @@ import React, {
 import { ProductType } from "@/type/ProductType";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { settingsApi } from "@/lib/api";
+import { trackMetaAddToCart } from "@/lib/meta-pixel";
 import {
   initializeCart,
   addToCart as addToCartAction,
@@ -124,6 +125,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [dispatch, isInitialized, allProducts, cartItems.length, productsHash]);
 
   const addToCart = (item: ProductType) => {
+    trackMetaAddToCart(item);
     dispatch(addToCartAction(item));
   };
 

@@ -64,6 +64,126 @@ const attachGstBreakdownToOrder = (orderRecord) => {
   };
 };
 
+const normalizePhoneDigits = (value) =>
+  String(value || "")
+    .replace(/\D/g, "")
+    .slice(-10);
+
+const parseAddressObject = (value) => {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
+const lookupCustomerForCheckout = async (req, res) => {
+  try {
+    const email = String(req.body?.email || "")
+      .trim()
+      .toLowerCase();
+    const phoneDigits = normalizePhoneDigits(req.body?.phone || req.body?.phoneNumber);
+
+    if (!email && !phoneDigits) {
+      return res.status(400).json({
+        success: false,
+        message: "Email or phone is required",
+      });
+    }
+
+    const customerAttributes = [
+      "id",
+      "firstName",
+      "lastName",
+      "email",
+      "phone",
+      "address",
+      "totalOrders",
+      "totalSpent",
+      "lastOrderDate",
+    ];
+
+    // Important: when email is present, prefer exact email match.
+    // Fallback to phone only if no email match was found.
+    let matchedCustomer = null;
+
+    if (email) {
+      matchedCustomer = await customer.findOne({
+        where: { email },
+        attributes: customerAttributes,
+        order: [["updatedAt", "DESC"]],
+      });
+    }
+
+    if (!matchedCustomer && phoneDigits) {
+      matchedCustomer = await customer.findOne({
+        where: {
+          phone: { [Op.like]: `%${phoneDigits}` },
+        },
+        attributes: customerAttributes,
+        order: [["updatedAt", "DESC"]],
+      });
+    }
+
+    if (!matchedCustomer) {
+      return res.json({
+        success: true,
+        data: {
+          matched: false,
+        },
+      });
+    }
+
+    const recentOrders = await order.findAll({
+      where: { customerId: matchedCustomer.id },
+      attributes: ["id", "orderNumber", "status", "totalAmount", "createdAt", "address"],
+      order: [["createdAt", "DESC"]],
+      limit: 5,
+    });
+
+    const customerAddress = parseAddressObject(matchedCustomer.address);
+    const lastOrderAddress = parseAddressObject(recentOrders[0]?.address);
+    const shippingAddress = customerAddress || lastOrderAddress || null;
+
+    return res.json({
+      success: true,
+      data: {
+        matched: true,
+        customer: {
+          id: matchedCustomer.id,
+          firstName: matchedCustomer.firstName,
+          lastName: matchedCustomer.lastName,
+          email: matchedCustomer.email,
+          phone: matchedCustomer.phone,
+          totalOrders: matchedCustomer.totalOrders || recentOrders.length,
+          totalSpent: matchedCustomer.totalSpent,
+          lastOrderDate: matchedCustomer.lastOrderDate,
+        },
+        shippingAddress,
+        recentOrders: recentOrders.map((entry) => ({
+          id: entry.id,
+          orderNumber: entry.orderNumber,
+          status: entry.status,
+          totalAmount: entry.totalAmount,
+          createdAt: entry.createdAt,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("Checkout customer lookup error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to lookup customer details",
+    });
+  }
+};
+
 // Generate JWT token for customer
 const generateCustomerToken = (customerData) => {
   return jwt.sign(
@@ -1260,6 +1380,7 @@ module.exports = {
   getCustomerOrders,
   getCustomerOrderById,
   getCustomerOrderStats,
+  lookupCustomerForCheckout,
   forgotPassword,
   resetPassword,
 };

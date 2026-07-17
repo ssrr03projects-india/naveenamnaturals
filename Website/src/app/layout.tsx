@@ -25,20 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Google Analytics */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-7CW1CY18CS"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-7CW1CY18CS');
-          `}
-        </Script>
-        {/* Meta Pixel Code */}
+	  {/* Meta Pixel Code */}
         <Script id="facebook-pixel" strategy="afterInteractive">
           {`
             !function(f,b,e,v,n,t,s)
@@ -49,18 +36,37 @@ export default function RootLayout({
             t.src=v;s=b.getElementsByTagName(e)[0];
             s.parentNode.insertBefore(t,s)}(window, document,'script',
             'https://connect.facebook.net/en_US/fbevents.js');
-            fbq('init', '1744527429901951');
+            fbq('init', '4392128877769831');
             fbq('track', 'PageView');
           `}
         </Script>
         <noscript>
           <img height="1" width="1" style={{ display: "none" }}
-            src="https://www.facebook.com/tr?id=1744527429901951&ev=PageView&noscript=1"
+            src="https://www.facebook.com/tr?id=4392128877769831&ev=PageView&noscript=1"
           />
         </noscript>
         {/* End Meta Pixel Code */}
+        <Script
+          id="google-tag-manager"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-5L2B3Q3K');`,
+          }}
+        />
       </head>
       <body>
+	  <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-5L2B3Q3K"
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
         <GlobalProvider>
           <PageLoaderWrapper />
           <Suspense fallback={null}>

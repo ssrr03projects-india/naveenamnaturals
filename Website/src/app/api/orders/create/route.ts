@@ -21,11 +21,15 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    if (!body.customerId || !body.items || body.items.length === 0) {
+    const hasCustomerIdentity = Boolean(
+      body.customerId || body?.address?.email,
+    );
+
+    if (!hasCustomerIdentity || !body.items || body.items.length === 0) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Customer and cart information are required',
+          message: 'Customer email (or customerId) and cart information are required',
         },
         { status: 400 }
       );

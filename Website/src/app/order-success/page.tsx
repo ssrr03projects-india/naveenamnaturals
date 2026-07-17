@@ -8,8 +8,10 @@ import TopNavOne from "@/components/Header/TopNav/TopNavOne";
 import MenuCosmeticThree from "@/components/Header/Menu/MenuCosmeticThree";
 import Breadcrumb from "@/components/Breadcrumb/Breadcrumb";
 import Footer from "@/components/Footer/Footer";
+import { trackMetaPurchase } from "@/lib/meta-pixel";
 
 const ORDER_SUCCESS_STORAGE_KEY = "nn_last_order_success";
+const META_PURCHASE_STORAGE_KEY = "nn_meta_purchase";
 
 type OrderItemSnapshot = {
   id: string;
@@ -113,6 +115,25 @@ const OrderSuccessContent = () => {
       Number(orderData?.gstBreakdown?.totalGst || 0) +
       Number(orderData?.shippingAmount || 0)
     : (orderData?.paidAmount ?? orderData?.totalAmount);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !orderData?.items?.length) return;
+
+    const purchaseKey = String(
+      orderData.orderId || orderData.orderNumber || searchParams.get("orderId") || "",
+    );
+    if (!purchaseKey) return;
+
+    const lastTrackedPurchase = sessionStorage.getItem(META_PURCHASE_STORAGE_KEY);
+    if (lastTrackedPurchase === purchaseKey) return;
+
+    trackMetaPurchase(
+      orderData.items,
+      Number(displayedTotalPaid || 0),
+      orderData.orderId || orderData.orderNumber || purchaseKey,
+    );
+    sessionStorage.setItem(META_PURCHASE_STORAGE_KEY, purchaseKey);
+  }, [displayedTotalPaid, orderData, searchParams]);
 
   const orderTimestamp = useMemo(() => {
     if (!orderData?.createdAt) return null;
